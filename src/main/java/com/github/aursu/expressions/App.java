@@ -1,4 +1,4 @@
-package com.github.aursu;
+package com.github.aursu.expressions;
 
 /**
  * Hello world!
