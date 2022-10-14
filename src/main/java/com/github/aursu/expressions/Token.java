@@ -86,4 +86,14 @@ public class Token<TokenType> {
 		if (token == null) return false;
 		return getName() == token.getName() && getValue() == token.getValue();  
 	}
+	
+	public String toString() {
+		switch(name) {
+	  		case SEPARATOR: return SeparatorToken.toString((TokenSeparator) value);
+	  		case OPERATOR: return OperatorToken.toString((TokenOperator) value);
+	  		case NUMBER: return value.toString();
+	  		case EOF: return "\n";
+		}
+		return null;
+	}
 }
