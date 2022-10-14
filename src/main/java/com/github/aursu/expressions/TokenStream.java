@@ -1,5 +1,8 @@
 package com.github.aursu.expressions;
 
+/* Lexer - main goal is to return single token at a time
+ * 
+ */
 public class TokenStream {
 	// input stream
 	private InputReader input;
