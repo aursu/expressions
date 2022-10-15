@@ -46,9 +46,6 @@ public class RPNParser {
 			if (token.isNumber()) {
 				// put it into the output queue
 				outQueue.add(token);
-				
-				// debug
-				System.out.printf("%s | %s | %s\n", token.toString(), outQueue.toString(), opStack.toString());
 			}
 			/*
 			 * TODO: not required for initial task (simple arithmetic operations)
@@ -71,10 +68,6 @@ public class RPNParser {
 				}
 				// push o1 onto the operator stack
 				opStack.add(o1);
-
-				// debug
-				System.out.printf("%s | %s | %s\n", token.toString(), outQueue.toString(), opStack.toString());
-
 			}
 			else if (token.isSeparator()) {
 				SeparatorToken sep = (SeparatorToken) token;
@@ -106,8 +99,6 @@ public class RPNParser {
 					 *   pop the function from the operator stack into the output queue
 					 * */
 				}
-				// debug
-				System.out.printf("%s | %s | %s\n", token.toString(), outQueue.toString(), opStack.toString());
 			}
 			
 			// read a token
@@ -124,9 +115,6 @@ public class RPNParser {
 				throw new ParseException("There are mismatched parentheses. Unexpected parenthesis found in operator stack at " + op.getStart(), op.getStart());
 			// pop the operator from the operator stack onto the output queue
 			outQueue.add(opStack.pop());
-			
-			// debug
-			System.out.printf("%s | %s | %s\n", token.toString(), outQueue.toString(), opStack.toString());
 		}
 	}
 
@@ -182,7 +170,9 @@ public class RPNParser {
 				opStack.add(new NumberToken(res));
 			}
 		}
+		
+		NumberToken result = opStack.pop();
 
-		return 0;
+		return result.getValue();
 	}
 }
