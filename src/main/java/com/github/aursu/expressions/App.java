@@ -16,6 +16,8 @@ import java.text.ParseException;
 import java.awt.event.ActionEvent;
 import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
+import javax.swing.BoxLayout;
+import java.awt.Component;
 
 @SuppressWarnings("serial")
 public class App extends JFrame implements ActionListener {
@@ -50,29 +52,30 @@ public class App extends JFrame implements ActionListener {
 	 */
 	public App() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setSize(450, 300);
+		// setSize(450, 300);
 
 		contentPane = new JPanel();
-		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+		// contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 
 		setContentPane(contentPane);
-		contentPane.setLayout(null);
+		contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.X_AXIS));
+		// contentPane.setLayout(null);
 		
+		JLabel lblExpression = new JLabel("Expression");
+		// lblExpression.setBounds(10, 26, 70, 16);
+		contentPane.add(lblExpression);
+
 		txtExpression = new JTextField();
-		txtExpression.setBounds(85, 20, 250, 29);
+		// txtExpression.setBounds(85, 20, 250, 29);
 		txtExpression.setToolTipText("Enter arithmetic expression");
 		contentPane.add(txtExpression);
 		txtExpression.setColumns(10);
-		
-		JLabel lblExpression = new JLabel("Expression");
-		lblExpression.setBounds(10, 26, 70, 16);
-		contentPane.add(lblExpression);
 		
 		JButton btnCheck = new JButton("Check");
 		btnCheck.setActionCommand(App.CMD_CHECK);
 		btnCheck.addActionListener(this);
 
-		btnCheck.setBounds(335, 20, 100, 29);
+		// btnCheck.setBounds(335, 20, 100, 29);
 		contentPane.add(btnCheck);
 		
 		JButton btnStore = new JButton("Store");
@@ -80,14 +83,16 @@ public class App extends JFrame implements ActionListener {
 			public void actionPerformed(ActionEvent e) {
 			}
 		});
-		btnStore.setBounds(335, 50, 100, 29);
+		// btnStore.setBounds(335, 50, 100, 29);
 		contentPane.add(btnStore);
 		
 		scrollPane = new JScrollPane();
-		scrollPane.setBounds(10, 55, 320, 200);
+		// scrollPane.setBounds(10, 55, 320, 200);
 		contentPane.add(scrollPane);
 		
 		textArea = new JTextArea();
+		textArea.setRows(512);
+		textArea.setColumns(512);
 		scrollPane.setViewportView(textArea);
 	}
 
