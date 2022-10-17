@@ -62,6 +62,7 @@ public class App extends JFrame implements ActionListener {
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 
 		setContentPane(contentPane);
+		/* https://docs.oracle.com/javase/tutorial/uiswing/layout/box.html */
 		contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.PAGE_AXIS));
 
 		JPanel upperBox = new JPanel();
