@@ -7,6 +7,9 @@ import java.awt.FlowLayout;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.Document;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JButton;
@@ -24,16 +27,39 @@ import java.awt.Dimension;
 import javax.swing.SwingConstants;
 
 @SuppressWarnings("serial")
-public class App extends JFrame implements ActionListener {
-	
-	public static final String CMD_CHECK = "checkExpression";
+public class App extends JFrame {
 
 	// UI
 	private JPanel contentPane;
 	private JTextField txtExpression;
 	private JTextArea textArea;
 	private JScrollPane scrollPane;
-	private JScrollPane scrollPane_1;
+	private JButton btnStore;
+
+	/** Listeners
+	 *
+	 * exprChange is to disable "Store" button if expression changed
+	 */
+	DocumentListener exprChange = new DocumentListener() {
+		public void removeUpdate(DocumentEvent e) {
+			changedUpdate(e);
+		}
+		public void insertUpdate(DocumentEvent e) {
+			changedUpdate(e);
+		}
+		public void changedUpdate(DocumentEvent e) {
+			btnStore.setEnabled(false);
+		}
+	};
+	
+	/**
+	 * exprCheck is to parse and check expression
+	 */
+	ActionListener exprCheck = new ActionListener() {
+		public void actionPerformed(ActionEvent e) {
+			checkExpression();
+		}
+	};
 
 	/**
 	 * Launch the application.
@@ -77,14 +103,15 @@ public class App extends JFrame implements ActionListener {
 		txtExpression = new JTextField();
 		txtExpression.setPreferredSize(new Dimension(250, 29));
 		txtExpression.setToolTipText("Enter arithmetic expression");
+		
+		Document expr = txtExpression.getDocument();
+	    if (expr != null) expr.addDocumentListener(exprChange);
 
 		upperBox.add(txtExpression);
 		
 		JButton btnCheck = new JButton("Check");
-		btnCheck.setPreferredSize(new Dimension(100, 29));
-
-		btnCheck.setActionCommand(App.CMD_CHECK);
-		btnCheck.addActionListener(this);
+		btnCheck.setPreferredSize(new Dimension(100, 29));		
+		btnCheck.addActionListener(exprCheck);
 		
 		upperBox.add(btnCheck);
 
@@ -104,7 +131,8 @@ public class App extends JFrame implements ActionListener {
 		
 		bottomBox.add(scrollPane);
 		
-		JButton btnStore = new JButton("Store");
+		btnStore = new JButton("Store");
+		btnStore.setEnabled(false);
 		btnStore.setAlignmentY(Component.TOP_ALIGNMENT);
 		btnStore.setMinimumSize(new Dimension(100, 29));
 		
@@ -118,20 +146,17 @@ public class App extends JFrame implements ActionListener {
 		contentPane.add(bottomBox);
 	}
 
-	public void actionPerformed(ActionEvent e) {
-		switch(e.getActionCommand()) {
-			case App.CMD_CHECK:
-				String expression = txtExpression.getText();
-				if (expression.isEmpty())
-					printErrorMessage("Expression is empty");
-				
-				Number result = calculateExpression(expression);
-				if (result == null) 
-				{ /* printErrorMessage("Can not calculate expression"); */ }
-				else {
-					textArea.setText(result.toString());
-				}
-				break;
+	public void checkExpression() {
+		String expression = txtExpression.getText();
+
+		if (expression.isEmpty()) printMessage("Expression is empty");
+		
+		Number result = calculateExpression(expression);
+
+		if (result == null) printMessage("Can not calculate expression", true);
+		else {
+			printMessage(result.toString());
+			btnStore.setEnabled(true);
 		}
 	}
 
@@ -146,8 +171,17 @@ public class App extends JFrame implements ActionListener {
 		return null;
 	}
 
-	public void printErrorMessage(String errMsg) {
-		textArea.setText(errMsg);
+	public void printMessage(String msg) {
+		printMessage(msg, false);
+	}
+
+	public void printMessage(String msg, boolean add) {
+		if (add) {
+			textArea.append(msg);
+		}
+		else {
+			textArea.setText(msg);
+		}
 	}
 
 	private void printStackTrace(Throwable e) {
@@ -156,6 +190,6 @@ public class App extends JFrame implements ActionListener {
 		
 		e.printStackTrace(pw);
 		
-		printErrorMessage(sw.toString());
+		printMessage(sw.toString());
 	}
 }
