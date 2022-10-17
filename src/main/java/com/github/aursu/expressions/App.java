@@ -2,6 +2,7 @@ package com.github.aursu.expressions;
 
 import java.awt.BorderLayout;
 import java.awt.EventQueue;
+import java.awt.FlowLayout;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -18,6 +19,9 @@ import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 import javax.swing.BoxLayout;
 import java.awt.Component;
+import java.awt.Dimension;
+
+import javax.swing.SwingConstants;
 
 @SuppressWarnings("serial")
 public class App extends JFrame implements ActionListener {
@@ -52,48 +56,65 @@ public class App extends JFrame implements ActionListener {
 	 */
 	public App() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		// setSize(450, 300);
+		setSize(450, 300);
 
 		contentPane = new JPanel();
-		// contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 
 		setContentPane(contentPane);
-		contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.X_AXIS));
-		// contentPane.setLayout(null);
-		
+		contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.PAGE_AXIS));
+
+		JPanel upperBox = new JPanel();
+		upperBox.setLayout(new BoxLayout(upperBox, BoxLayout.LINE_AXIS));
+		upperBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
+
 		JLabel lblExpression = new JLabel("Expression");
-		// lblExpression.setBounds(10, 26, 70, 16);
-		contentPane.add(lblExpression);
+		lblExpression.setHorizontalAlignment(SwingConstants.LEFT);
+		lblExpression.setPreferredSize(new Dimension(70, 16));
+		upperBox.add(lblExpression);
 
 		txtExpression = new JTextField();
-		// txtExpression.setBounds(85, 20, 250, 29);
+		txtExpression.setPreferredSize(new Dimension(250, 29));
 		txtExpression.setToolTipText("Enter arithmetic expression");
-		contentPane.add(txtExpression);
-		txtExpression.setColumns(10);
+
+		upperBox.add(txtExpression);
 		
 		JButton btnCheck = new JButton("Check");
+		btnCheck.setPreferredSize(new Dimension(100, 29));
+
 		btnCheck.setActionCommand(App.CMD_CHECK);
 		btnCheck.addActionListener(this);
+		
+		upperBox.add(btnCheck);
 
-		// btnCheck.setBounds(335, 20, 100, 29);
-		contentPane.add(btnCheck);
+		contentPane.add(upperBox);
 		
-		JButton btnStore = new JButton("Store");
-		btnStore.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-			}
-		});
-		// btnStore.setBounds(335, 50, 100, 29);
-		contentPane.add(btnStore);
-		
+		JPanel bottomBox = new JPanel();
+		bottomBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
+		bottomBox.setLayout(new BoxLayout(bottomBox, BoxLayout.LINE_AXIS));
+
 		scrollPane = new JScrollPane();
-		// scrollPane.setBounds(10, 55, 320, 200);
-		contentPane.add(scrollPane);
-		
+		scrollPane.setAlignmentY(Component.TOP_ALIGNMENT);
+
 		textArea = new JTextArea();
 		textArea.setRows(512);
 		textArea.setColumns(512);
 		scrollPane.setViewportView(textArea);
+		
+		bottomBox.add(scrollPane);
+		
+		JButton btnStore = new JButton("Store");
+		btnStore.setAlignmentY(Component.TOP_ALIGNMENT);
+		btnStore.setMinimumSize(new Dimension(100, 29));
+		
+		btnStore.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+			}
+		});
+
+		bottomBox.add(btnStore);
+		
+		contentPane.add(bottomBox);
 	}
 
 	public void actionPerformed(ActionEvent e) {
