@@ -379,11 +379,26 @@ public class App extends JFrame {
 		dbUser = txtDBUser.getText();
 		dbPassword = new String(passwordField.getPassword());
 		dbName = txtDBName.getText();
+		
+		String hostName = dbHost;
 
 		if (dbHost.isEmpty() || dbUser.isEmpty() || dbPassword.isEmpty() || dbName.isEmpty())
 			return false;
 		
-	    if (InetAddressValidator.getInstance().isValid(dbHost) || DomainValidator.getInstance(true).isValid(dbHost))
+		// check port number
+		if (dbHost.indexOf(':') > 0) {
+			String hostAddr[] = dbHost.split(":");
+			hostName = hostAddr[0];
+
+			try {
+				Integer.valueOf(hostAddr[1]);
+			}
+			catch(NumberFormatException e){
+				return false;
+			}
+		}
+
+	    if (InetAddressValidator.getInstance().isValid(hostName) || DomainValidator.getInstance(true).isValid(hostName))
 			return true;
 
 		return false;
