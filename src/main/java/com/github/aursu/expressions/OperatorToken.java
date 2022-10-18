@@ -9,7 +9,13 @@ enum TokenOperator {
 	OP_MINUS, // minus operation
 	OP_MULT, // multiplication operation
 	OP_DIV, // division operation
-	OP_POWER // power operator
+	OP_POWER, // power operator
+	CMP_GT, // comparison greater than
+	CMP_LT, // comparison less than
+	CMP_GTE, // comparison greater than or equal to
+	CMP_LTE, // comparison less than or equal to
+	EQ_EQ, // equality equal to
+	EQ_NE // equality not equal to
 }
 
 /*
@@ -26,12 +32,18 @@ enum OperationAssociativity {
  * (see also https://en.wikipedia.org/wiki/Order_of_operations for details)
  */
 enum OperationOrder {
-	OP_PLUS (TokenOperator.OP_PLUS, 2, OperationAssociativity.ASSOC_LEFT), // plus operation
-	OP_MINUS (TokenOperator.OP_MINUS, 2, OperationAssociativity.ASSOC_LEFT), // minus operation
-	OP_MULT (TokenOperator.OP_MULT, 3, OperationAssociativity.ASSOC_LEFT), // multiplication operation
-	OP_DIV (TokenOperator.OP_DIV, 3, OperationAssociativity.ASSOC_LEFT), // division operation
-	OP_POWER (TokenOperator.OP_POWER, 4, OperationAssociativity.ASSOC_RIGHT); // power operator ^
-
+	EQ_EQ (TokenOperator.EQ_EQ, 2, OperationAssociativity.ASSOC_LEFT), // equality equal to
+	EQ_NE (TokenOperator.EQ_NE, 2, OperationAssociativity.ASSOC_LEFT), // equality not equal to
+	CMP_GT (TokenOperator.CMP_GT, 3, OperationAssociativity.ASSOC_LEFT), // comparison greater than
+	CMP_LT (TokenOperator.CMP_LT, 3, OperationAssociativity.ASSOC_LEFT), // comparison less than
+	CMP_GTE (TokenOperator.CMP_GTE, 3, OperationAssociativity.ASSOC_LEFT), // comparison greater than or equal to
+	CMP_LTE (TokenOperator.CMP_LTE, 3, OperationAssociativity.ASSOC_LEFT), // comparison less than or equal to
+	OP_PLUS (TokenOperator.OP_PLUS, 4, OperationAssociativity.ASSOC_LEFT), // plus operation
+	OP_MINUS (TokenOperator.OP_MINUS, 4, OperationAssociativity.ASSOC_LEFT), // minus operation
+	OP_MULT (TokenOperator.OP_MULT, 5, OperationAssociativity.ASSOC_LEFT), // multiplication operation
+	OP_DIV (TokenOperator.OP_DIV, 5, OperationAssociativity.ASSOC_LEFT), // division operation
+	OP_POWER (TokenOperator.OP_POWER, 6, OperationAssociativity.ASSOC_RIGHT); // power operator ^
+	
 	// Operator	Precedence	Associativity
     public final TokenOperator operator;
     public final int precedence;
@@ -101,28 +113,58 @@ public class OperatorToken extends Token<TokenOperator> {
 		return assoc == OperationAssociativity.ASSOC_RIGHT;
 	}
 
-	public static boolean isOperator(char ch) {
+	public static int isOperator(char ch, char lookahead) {
 		switch(ch) {
+			case '=', '!':
+				if (lookahead == '=') return 2;
+				break;
+			case '>', '<':
+				if (lookahead == '=') return 2;
+				return 1;
 			case '+', '^':
 			case '*', (char) 215, (char) 183: // *, ×, ·
 			case '/', (char) 247: // /, ÷
 			case '-', '\u2212':   // -, −
-				return true;
+				return 1;
 		}
-		return false;
+		return 0;
 	}
-	
-	public static OperatorToken getToken(char ch) {
+
+	public static boolean isOperator(InputReader input) {
+		char peek      = input.peek(0),
+	         lookahead = input.peek(1);
+		return (isOperator(peek, lookahead) > 0);
+	}
+
+	public static OperatorToken getToken(char ch, char lookahead) {
 		switch(ch) {
 		  	case '+': return new OperatorToken(TokenOperator.OP_PLUS);
 		  	case '-', '\u2212': return new OperatorToken(TokenOperator.OP_MINUS);
 		  	case '*', (char) 215, (char) 183: return new OperatorToken(TokenOperator.OP_MULT);
 		  	case '/', (char) 247: return new OperatorToken(TokenOperator.OP_DIV);
 		  	case '^': return new OperatorToken(TokenOperator.OP_POWER);
+		  	case '>':
+		  		if (lookahead == '=') return new OperatorToken(TokenOperator.CMP_GTE);
+		  		return new OperatorToken(TokenOperator.CMP_GT);
+		  	case '<':
+		  		if (lookahead == '=') return new OperatorToken(TokenOperator.CMP_LTE);
+		  		return new OperatorToken(TokenOperator.CMP_LT);
+		  	case '!':
+		  		if (lookahead == '=') return new OperatorToken(TokenOperator.EQ_NE);
+		  		break;
+		  	case '=':
+		  		if (lookahead == '=') return new OperatorToken(TokenOperator.EQ_EQ);
 		}
 		return null;
 	}
-	
+
+	public static OperatorToken getToken(String op) {
+		char peek = op.charAt(0), lookahead  = 0;
+		if (op.length() > 1) lookahead = op.charAt(1);
+
+		return getToken(peek, lookahead);
+	}
+
 	public static String toString(TokenOperator value) {
 		switch(value) {
 	  		case OP_PLUS: return "+";
@@ -130,7 +172,33 @@ public class OperatorToken extends Token<TokenOperator> {
 	  		case OP_MULT: return "*";
 	  		case OP_DIV: return "/";
 	  		case OP_POWER: return "^";
+	  		case CMP_GT: return ">";
+	  		case CMP_LT: return "<";
+	  		case CMP_GTE: return ">=";
+	  		case CMP_LTE: return "<=";
+	  		case EQ_EQ: return "==";
+	  		case EQ_NE: return "!=";	
 		}
 		return null;
+	}
+	
+	// >, <, >=, <=
+	public static String read(InputReader input) {
+		char peek      = input.peek(0),
+			 lookahead = input.peek(1);
+		
+		int opLen = isOperator(peek, lookahead);
+
+		if (opLen > 0) input.next(); // consume operator
+		else return null;
+		
+		String token = String.valueOf(peek);
+		
+		if (opLen == 2) {
+			token += lookahead;
+			input.next(); // consume lookahead
+		}
+
+		return token;
 	}
 }
