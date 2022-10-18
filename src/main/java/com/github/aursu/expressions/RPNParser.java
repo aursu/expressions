@@ -23,10 +23,18 @@ public class RPNParser {
 	public RPNParser(String input) {
 		reset(input);
 	}
-
-	private void reset(String input) {
+	
+	public RPNParser(InputReader input) {
+		reset(input);
+	}
+	
+	private void reset(InputReader input) {
 		this.input = new TokenStream(input);
 		outQueue.clear();
+	}
+	
+	private void reset(String input) {
+		reset(new InputReader(input));
 	}
 
 	// Shunting yard algorithm
