@@ -9,6 +9,10 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
+
+import org.apache.commons.validator.routines.DomainValidator;
+import org.apache.commons.validator.routines.InetAddressValidator;
+
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JButton;
@@ -26,42 +30,31 @@ import java.awt.Dimension;
 import javax.swing.SwingConstants;
 import java.awt.GridBagConstraints;
 import javax.swing.JPasswordField;
+import javax.swing.JTable;
 
 @SuppressWarnings("serial")
 public class App extends JFrame {
-
 	// UI
 	private JPanel contentPane;
 	private JTextField txtExpression;
 	private JTextArea textArea;
-	private JScrollPane scrollPane;
-	private JButton btnStore;
 
-	/** Listeners
-	 *
-	 * exprChange is to disable "Store" button if expression changed
-	 */
-	DocumentListener exprChange = new DocumentListener() {
-		public void removeUpdate(DocumentEvent e) {
-			changedUpdate(e);
-		}
-		public void insertUpdate(DocumentEvent e) {
-			changedUpdate(e);
-		}
-		public void changedUpdate(DocumentEvent e) {
-			btnStore.setEnabled(false);
-		}
-	};
-	
-	/**
-	 * exprCheck is to parse and check expression
-	 */
-	ActionListener exprCheck = new ActionListener() {
-		public void actionPerformed(ActionEvent e) {
-			checkExpression();
-		}
-	};
+	// Database interface
+	private JButton btnStore;
+	private JButton btnLoad;
+	private JTextField txtDBHost;
+	private JTextField txtDBUser;
 	private JPasswordField passwordField;
+	private JTextField txtDBName;
+
+	private JTable table;
+
+	private String dbHost, dbUser, dbPassword, dbName;
+	
+	// search interface
+	private JButton btnSearch;
+	private JTextField txtSearch;
+	
 
 	/**
 	 * Launch the application.
@@ -84,7 +77,7 @@ public class App extends JFrame {
 	 */
 	public App() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setSize(450, 300);
+		setSize(450, 550);
 
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -94,39 +87,31 @@ public class App extends JFrame {
 		contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.PAGE_AXIS));
 
 		expressionGUI();
-		
-		JPanel middleBox = new JPanel();
-		middleBox.setLayout(new BoxLayout(middleBox, BoxLayout.LINE_AXIS));
-		middleBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
-		
-		scrollPane = new JScrollPane();
-		scrollPane.setAlignmentY(Component.TOP_ALIGNMENT);
-
-		textArea = new JTextArea();
-		textArea.setRows(512);
-		textArea.setColumns(512);
-		scrollPane.setViewportView(textArea);
-		
-		middleBox.add(scrollPane);
-		
-		btnStore = new JButton("Store");
-		btnStore.setEnabled(false);
-		btnStore.setAlignmentY(Component.TOP_ALIGNMENT);
-		btnStore.setMinimumSize(new Dimension(100, 29));
-		
-		btnStore.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-			}
-		});
-
-		middleBox.add(btnStore);
-
-		contentPane.add(middleBox);
-		
+		textGUI();
 		databaseGUI();
+		contentGui();
+		searchGUI();
 	}
-	
-	public void expressionGUI() {
+
+	private void expressionGUI() {
+		DocumentListener exprChange = new DocumentListener() {
+			public void removeUpdate(DocumentEvent e) {
+				changedUpdate(e);
+			}
+			public void insertUpdate(DocumentEvent e) {
+				changedUpdate(e);
+			}
+			public void changedUpdate(DocumentEvent e) {
+				btnStore.setEnabled(false);
+			}
+		};
+
+		ActionListener exprCheck = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				checkExpression();
+			}
+		};
+
 		JPanel upperBox = new JPanel();
 		upperBox.setLayout(new BoxLayout(upperBox, BoxLayout.LINE_AXIS));
 		upperBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
@@ -154,7 +139,51 @@ public class App extends JFrame {
 		contentPane.add(upperBox);
 	}
 	
-	public void databaseGUI() {
+	private void textGUI() {
+		JPanel textBox = new JPanel();
+		textBox.setLayout(new BoxLayout(textBox, BoxLayout.LINE_AXIS));
+		textBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
+		
+		JScrollPane scrollPane = new JScrollPane();
+		scrollPane.setAlignmentY(Component.TOP_ALIGNMENT);
+		scrollPane.setMinimumSize(new Dimension(0, 100));
+
+		textArea = new JTextArea();
+		textArea.setRows(512);
+		textArea.setColumns(512);
+		scrollPane.setViewportView(textArea);
+		
+		textBox.add(scrollPane);
+		
+		btnStore = new JButton("Store");
+		btnStore.setEnabled(false);
+		btnStore.setAlignmentY(Component.TOP_ALIGNMENT);
+		btnStore.setMinimumSize(new Dimension(100, 29));
+		
+		btnStore.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+			}
+		});
+
+		textBox.add(btnStore);
+
+		contentPane.add(textBox);
+	}
+	
+	private void databaseGUI() {
+		DocumentListener credsChange = new DocumentListener() {
+			public void removeUpdate(DocumentEvent e) {
+				changedUpdate(e);
+			}
+			public void insertUpdate(DocumentEvent e) {
+				changedUpdate(e);
+			}
+			public void changedUpdate(DocumentEvent e) {				
+				if (setupDBCredentials()) btnLoad.setEnabled(true);
+				else btnLoad.setEnabled(false);
+			}
+		};
+		
 		JPanel databaseBox = new JPanel();
 		databaseBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
 		
@@ -162,10 +191,14 @@ public class App extends JFrame {
 		gbl_databaseBox.columnWeights = new double[]{0.0, 1.0};
 		databaseBox.setLayout(gbl_databaseBox);
 
-		JLabel lblDBHost = new JLabel("Database Host");
-		JTextField txtDBHost = new JTextField();
+		txtDBHost = new JTextField();
 		txtDBHost.setText("localhost");
 		txtDBHost.setToolTipText("Enter database host");
+		
+		Document docDBHost = txtDBHost.getDocument();
+	    if (docDBHost != null) docDBHost.addDocumentListener(credsChange);
+
+		JLabel lblDBHost = new JLabel("Database Host");
 		lblDBHost.setLabelFor(txtDBHost);
 
 		GridBagConstraints gbc_lblDBHost = new GridBagConstraints();
@@ -180,11 +213,15 @@ public class App extends JFrame {
 		gbc_txtDBHost.gridy = 0;
 		gbc_txtDBHost.fill = GridBagConstraints.HORIZONTAL;
 		databaseBox.add(txtDBHost, gbc_txtDBHost);
-		
-		JLabel lblDBUser = new JLabel("Database User");
-		JTextField txtDBUser = new JTextField();
-		txtDBUser.setText("root");
+
+		txtDBUser = new JTextField();
+		txtDBUser.setText("expressions");
 		txtDBUser.setToolTipText("Enter database user");
+
+		Document docDBUser = txtDBUser.getDocument();
+	    if (docDBUser != null) docDBUser.addDocumentListener(credsChange);
+
+		JLabel lblDBUser = new JLabel("Database User");
 		lblDBUser.setLabelFor(txtDBUser);
 
 		GridBagConstraints gbc_lblDBUser = new GridBagConstraints();
@@ -192,7 +229,7 @@ public class App extends JFrame {
 		gbc_lblDBUser.gridx = 0;
 		gbc_lblDBUser.gridy = 1;
 		databaseBox.add(lblDBUser, gbc_lblDBUser);
-		
+
 		GridBagConstraints gbc_txtDBUser = new GridBagConstraints();
 		gbc_txtDBUser.anchor = GridBagConstraints.WEST;
 		gbc_txtDBUser.gridx = 1;
@@ -200,9 +237,13 @@ public class App extends JFrame {
 		gbc_txtDBUser.fill = GridBagConstraints.HORIZONTAL;
 		databaseBox.add(txtDBUser, gbc_txtDBUser);
 
-		JLabel lblDBPassword = new JLabel("Database Password");
 		passwordField = new JPasswordField();
 		passwordField.setToolTipText("Enter database password");
+
+		Document docDBPassword = passwordField.getDocument();
+	    if (docDBPassword != null) docDBPassword.addDocumentListener(credsChange);
+
+		JLabel lblDBPassword = new JLabel("Database Password");
 		lblDBPassword.setLabelFor(passwordField);
 		
 		GridBagConstraints gbc_lblDBPassword = new GridBagConstraints();
@@ -217,10 +258,14 @@ public class App extends JFrame {
 		gbc_pwdDBPassword.fill = GridBagConstraints.HORIZONTAL;
 		databaseBox.add(passwordField, gbc_pwdDBPassword);
 
-		JLabel lblDBName = new JLabel("Database Name");
-		JTextField txtDBName = new JTextField();
+		txtDBName = new JTextField();
 		txtDBName.setText("expressions");
 		txtDBName.setToolTipText("Enter database name");
+
+		Document docDBName = txtDBName.getDocument();
+	    if (docDBName != null) docDBName.addDocumentListener(credsChange);
+
+		JLabel lblDBName = new JLabel("Database Name");
 		lblDBName.setLabelFor(txtDBName);
 
 		GridBagConstraints gbc_lblDBName = new GridBagConstraints();
@@ -238,11 +283,119 @@ public class App extends JFrame {
 		
 		contentPane.add(databaseBox);
 	}
+	
+	private void contentGui() {
+		JPanel contentBox = new JPanel();
+		contentBox.setLayout(new BoxLayout(contentBox, BoxLayout.LINE_AXIS));
+		contentBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
+		
+		JScrollPane contentScrollPane = new JScrollPane();
+		contentScrollPane.setAlignmentY(Component.TOP_ALIGNMENT);
+		contentScrollPane.setMinimumSize(new Dimension(0, 100));
+
+		String[] columnNames = {
+			"Polish",
+            "Infix",
+            "Value"
+        };
+		Object[][] data = {};
+		
+		table = new JTable(data, columnNames);
+		table.setFillsViewportHeight(true);
+		table.setColumnSelectionAllowed(true);
+		table.setCellSelectionEnabled(true);
+		contentScrollPane.setViewportView(table);
+
+		contentBox.add(contentScrollPane);
+
+		btnLoad = new JButton("Load");
+		btnLoad.setEnabled(false);
+		btnLoad.setAlignmentY(Component.TOP_ALIGNMENT);
+		btnLoad.setPreferredSize(new Dimension(100, 29));
+		
+		btnLoad.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+			}
+		});
+
+		contentBox.add(btnLoad);
+
+		contentPane.add(contentBox);
+	}
+
+	private void searchGUI() {
+		DocumentListener srchChange = new DocumentListener() {
+			public void removeUpdate(DocumentEvent e) {
+				changedUpdate(e);
+			}
+			public void insertUpdate(DocumentEvent e) {
+				changedUpdate(e);
+			}
+			public void changedUpdate(DocumentEvent e) {
+				validateSearch();
+			}
+		};
+
+		ActionListener resultSearch = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				searchExpression();
+			}
+		};
+
+		JPanel searchBox = new JPanel();
+		searchBox.setLayout(new BoxLayout(searchBox, BoxLayout.LINE_AXIS));
+		searchBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
+
+		JLabel lblSearch = new JLabel("Search");
+		lblSearch.setHorizontalAlignment(SwingConstants.CENTER);
+		lblSearch.setPreferredSize(new Dimension(70, 16));
+		searchBox.add(lblSearch);
+
+		txtSearch = new JTextField();
+		txtSearch.setPreferredSize(new Dimension(250, 29));
+		txtSearch.setToolTipText("Enter search expression");
+
+		Document expr = txtSearch.getDocument();
+	    if (expr != null) expr.addDocumentListener(srchChange);
+
+		searchBox.add(txtSearch);
+
+		btnSearch = new JButton("Search");
+		btnSearch.setEnabled(false);
+		btnSearch.setPreferredSize(new Dimension(100, 29));		
+		btnSearch.addActionListener(resultSearch);
+
+		searchBox.add(btnSearch);
+
+		contentPane.add(searchBox);
+	}
+	
+	public void searchExpression() {
+		
+	}
+	
+	private boolean setupDBCredentials() {
+		dbHost = txtDBHost.getText();
+		dbUser = txtDBUser.getText();
+		dbPassword = new String(passwordField.getPassword());
+		dbName = txtDBName.getText();
+
+		if (dbHost.isEmpty() || dbUser.isEmpty() || dbPassword.isEmpty() || dbName.isEmpty())
+			return false;
+		
+	    if (InetAddressValidator.getInstance().isValid(dbHost) || DomainValidator.getInstance(true).isValid(dbHost))
+			return true;
+
+		return false;
+	}
 
 	public void checkExpression() {
 		String expression = txtExpression.getText();
 
-		if (expression.isEmpty()) printMessage("Expression is empty");
+		if (expression.isEmpty()) {
+			printMessage("Expression is empty");
+			return;
+		}
 		
 		Number result = calculateExpression(expression);
 
@@ -252,13 +405,50 @@ public class App extends JFrame {
 			btnStore.setEnabled(true);
 		}
 	}
+	
+	public void validateSearch() {
+		String search = txtSearch.getText();
 
+		if (search.isEmpty()) {
+			printMessage("Search expression is empty");
+			btnSearch.setEnabled(false);
+			return;
+		}
+
+		InputReader input = new InputReader(search);
+		OperatorToken opToken = null;
+		
+		if (OperatorToken.isOperator(input)) {
+			opToken = OperatorToken.getToken(OperatorToken.read(input));
+		}
+
+		Number result = calculateExpression(input, false);
+
+		if (result == null) {
+			printMessage("Search expression is incorrect");
+			btnSearch.setEnabled(false);
+		}
+		else {
+			printMessage(result.toString());
+			btnSearch.setEnabled(true);
+		}
+	}
+	
 	public Number calculateExpression(String expression) {
+		return calculateExpression(expression, true);
+	}
+
+	public Number calculateExpression(String expression, boolean verbose) {
+		return calculateExpression(new InputReader(expression), verbose);
+	}
+	
+	public Number calculateExpression(InputReader expression, boolean verbose) {
 		RPNParser parser = new RPNParser(expression);
 		try {
 			return parser.rpnEvaluate();
 		} catch (ParseException e) {
-			printStackTrace(e);
+			if (verbose)
+				printStackTrace(e);
 		}
 
 		return null;
