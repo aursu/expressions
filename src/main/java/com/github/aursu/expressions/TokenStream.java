@@ -16,7 +16,11 @@ public class TokenStream {
 	public TokenStream(String buffer) {
 		input = new InputReader(buffer);
 	}
-	
+
+	public TokenStream(InputReader input) {
+		this.input = input;
+	}
+
 	public Token<?> peek() {
 		if (current == null) return next();
 		return current;
@@ -57,10 +61,12 @@ public class TokenStream {
     	}
 
     	// check if operator
-    	if (OperatorToken.isOperator(peek)) {
-    		input.next();  // consume operator
+    	if (OperatorToken.isOperator(input)) {
+    		String op = OperatorToken.read(input);
+    		
+    		if (op == null) return null;
 
-    		OperatorToken token = OperatorToken.getToken(peek);
+    		OperatorToken token = OperatorToken.getToken(op);
     		
     		token.setRange(start, input.getPos());
     		return token;
