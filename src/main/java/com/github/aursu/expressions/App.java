@@ -8,6 +8,7 @@ import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.text.Document;
 
 import org.apache.commons.validator.routines.DomainValidator;
@@ -20,10 +21,14 @@ import java.awt.event.ActionListener;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.text.ParseException;
+import java.util.Collections;
+import java.util.Vector;
 import java.awt.event.ActionEvent;
 import javax.swing.JTextArea;
 import javax.swing.JScrollPane;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
+
 import java.awt.Component;
 import java.awt.Dimension;
 
@@ -31,9 +36,13 @@ import javax.swing.SwingConstants;
 import java.awt.GridBagConstraints;
 import javax.swing.JPasswordField;
 import javax.swing.JTable;
+import javax.swing.JRadioButton;
 
 @SuppressWarnings("serial")
 public class App extends JFrame {
+	
+	// data table columns
+	public static final String[] columnNames = { "Polish", "Infix", "Value" };
 	// UI
 	private JPanel contentPane;
 	private JTextField txtExpression;
@@ -50,7 +59,8 @@ public class App extends JFrame {
 	private JTable table;
 
 	private String dbHost, dbUser, dbPassword, dbName;
-	
+	private DBDriver dbDriver = DBDriver.MYSQL;
+
 	// search interface
 	private JButton btnSearch;
 	private JTextField txtSearch;
@@ -89,7 +99,7 @@ public class App extends JFrame {
 		expressionGUI();
 		textGUI();
 		databaseGUI();
-		contentGui();
+		contentGUI();
 		searchGUI();
 	}
 
@@ -184,11 +194,23 @@ public class App extends JFrame {
 			}
 		};
 		
+		ActionListener driverSelect = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				switch(e.getActionCommand()) {
+					case "PostgreSQL":
+						setDBBriver(DBDriver.POSTGRES);
+						break;
+					default:
+						setDBBriver(DBDriver.MYSQL);
+				}
+			}
+		};
+		
 		JPanel databaseBox = new JPanel();
 		databaseBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
 		
 		GridBagLayout gbl_databaseBox = new GridBagLayout();
-		gbl_databaseBox.columnWeights = new double[]{0.0, 1.0};
+		gbl_databaseBox.columnWeights = new double[]{0.0, 0.5, 1.0};
 		databaseBox.setLayout(gbl_databaseBox);
 
 		txtDBHost = new JTextField();
@@ -197,6 +219,31 @@ public class App extends JFrame {
 		
 		Document docDBHost = txtDBHost.getDocument();
 	    if (docDBHost != null) docDBHost.addDocumentListener(credsChange);
+		
+		JRadioButton rdbtnMySQL = new JRadioButton("MySQL");
+		rdbtnMySQL.setSelected(true);
+		rdbtnMySQL.setActionCommand("MySQL");
+		rdbtnMySQL.addActionListener(driverSelect);
+		GridBagConstraints gbc_rdbtnMySQL = new GridBagConstraints();
+		gbc_rdbtnMySQL.anchor = GridBagConstraints.WEST;
+		gbc_rdbtnMySQL.gridx = 1;
+		gbc_rdbtnMySQL.gridy = 0;
+		databaseBox.add(rdbtnMySQL, gbc_rdbtnMySQL);
+
+		JRadioButton rdbtnPostgres = new JRadioButton("PostgreSQL");
+		rdbtnPostgres.setEnabled(false);
+		rdbtnPostgres.setSelected(false);
+		rdbtnPostgres.setActionCommand("PostgreSQL");
+		rdbtnPostgres.addActionListener(driverSelect);
+		GridBagConstraints gbc_rdbtnPostgres = new GridBagConstraints();
+		gbc_rdbtnPostgres.anchor = GridBagConstraints.WEST;
+		gbc_rdbtnPostgres.gridx = 2;
+		gbc_rdbtnPostgres.gridy = 0;
+		databaseBox.add(rdbtnPostgres, gbc_rdbtnPostgres);
+
+		ButtonGroup dbType = new ButtonGroup();
+    	dbType.add(rdbtnMySQL);
+    	dbType.add(rdbtnPostgres);
 
 		JLabel lblDBHost = new JLabel("Database Host");
 		lblDBHost.setLabelFor(txtDBHost);
@@ -204,13 +251,14 @@ public class App extends JFrame {
 		GridBagConstraints gbc_lblDBHost = new GridBagConstraints();
 		gbc_lblDBHost.anchor = GridBagConstraints.WEST;
 		gbc_lblDBHost.gridx = 0;
-		gbc_lblDBHost.gridy = 0;
+		gbc_lblDBHost.gridy = 1;
 		databaseBox.add(lblDBHost, gbc_lblDBHost);
 
 		GridBagConstraints gbc_txtDBHost = new GridBagConstraints();
 		gbc_txtDBHost.anchor = GridBagConstraints.WEST;
 		gbc_txtDBHost.gridx = 1;
-		gbc_txtDBHost.gridy = 0;
+		gbc_txtDBHost.gridy = 1;
+		gbc_txtDBHost.gridwidth = 2;
 		gbc_txtDBHost.fill = GridBagConstraints.HORIZONTAL;
 		databaseBox.add(txtDBHost, gbc_txtDBHost);
 
@@ -227,13 +275,14 @@ public class App extends JFrame {
 		GridBagConstraints gbc_lblDBUser = new GridBagConstraints();
 		gbc_lblDBUser.anchor = GridBagConstraints.WEST;
 		gbc_lblDBUser.gridx = 0;
-		gbc_lblDBUser.gridy = 1;
+		gbc_lblDBUser.gridy = 2;
 		databaseBox.add(lblDBUser, gbc_lblDBUser);
 
 		GridBagConstraints gbc_txtDBUser = new GridBagConstraints();
 		gbc_txtDBUser.anchor = GridBagConstraints.WEST;
 		gbc_txtDBUser.gridx = 1;
-		gbc_txtDBUser.gridy = 1;
+		gbc_txtDBUser.gridy = 2;
+		gbc_txtDBUser.gridwidth = 2;
 		gbc_txtDBUser.fill = GridBagConstraints.HORIZONTAL;
 		databaseBox.add(txtDBUser, gbc_txtDBUser);
 
@@ -248,13 +297,14 @@ public class App extends JFrame {
 		
 		GridBagConstraints gbc_lblDBPassword = new GridBagConstraints();
 		gbc_lblDBPassword.gridx = 0;
-		gbc_lblDBPassword.gridy = 2;
+		gbc_lblDBPassword.gridy = 3;
 		databaseBox.add(lblDBPassword, gbc_lblDBPassword);
 
 		GridBagConstraints gbc_pwdDBPassword = new GridBagConstraints();
 		gbc_pwdDBPassword.anchor = GridBagConstraints.WEST;
 		gbc_pwdDBPassword.gridx = 1;
-		gbc_pwdDBPassword.gridy = 2;
+		gbc_pwdDBPassword.gridy = 3;
+		gbc_pwdDBPassword.gridwidth = 2;
 		gbc_pwdDBPassword.fill = GridBagConstraints.HORIZONTAL;
 		databaseBox.add(passwordField, gbc_pwdDBPassword);
 
@@ -271,20 +321,27 @@ public class App extends JFrame {
 		GridBagConstraints gbc_lblDBName = new GridBagConstraints();
 		gbc_lblDBName.anchor = GridBagConstraints.WEST;
 		gbc_lblDBName.gridx = 0;
-		gbc_lblDBName.gridy = 3;
+		gbc_lblDBName.gridy = 4;
 		databaseBox.add(lblDBName, gbc_lblDBName);
 
 		GridBagConstraints gbc_txtDBName = new GridBagConstraints();
 		gbc_txtDBName.anchor = GridBagConstraints.WEST;
 		gbc_txtDBName.gridx = 1;
-		gbc_txtDBName.gridy = 3;
+		gbc_txtDBName.gridy = 4;
+		gbc_txtDBName.gridwidth = 2;
 		gbc_txtDBName.fill = GridBagConstraints.HORIZONTAL;
 		databaseBox.add(txtDBName, gbc_txtDBName);
 		
 		contentPane.add(databaseBox);
 	}
 	
-	private void contentGui() {
+	private void contentGUI() {
+		ActionListener loadData = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+
+			}
+		};
+
 		JPanel contentBox = new JPanel();
 		contentBox.setLayout(new BoxLayout(contentBox, BoxLayout.LINE_AXIS));
 		contentBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
@@ -293,14 +350,12 @@ public class App extends JFrame {
 		contentScrollPane.setAlignmentY(Component.TOP_ALIGNMENT);
 		contentScrollPane.setMinimumSize(new Dimension(0, 100));
 
-		String[] columnNames = {
-			"Polish",
-            "Infix",
-            "Value"
-        };
-		Object[][] data = {};
-		
-		table = new JTable(data, columnNames);
+		Vector<String> columnNames = new Vector<>();
+		Collections.addAll(columnNames, App.columnNames);
+
+		Vector<Vector<Object>> rowData = new Vector<>();
+
+		table = new JTable(rowData, columnNames);
 		table.setFillsViewportHeight(true);
 		table.setColumnSelectionAllowed(true);
 		table.setCellSelectionEnabled(true);
@@ -312,11 +367,7 @@ public class App extends JFrame {
 		btnLoad.setEnabled(false);
 		btnLoad.setAlignmentY(Component.TOP_ALIGNMENT);
 		btnLoad.setPreferredSize(new Dimension(100, 29));
-		
-		btnLoad.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-			}
-		});
+		btnLoad.addActionListener(loadData);
 
 		contentBox.add(btnLoad);
 
@@ -369,7 +420,16 @@ public class App extends JFrame {
 
 		contentPane.add(searchBox);
 	}
-	
+
+	public void setDBBriver(DBDriver drv) {
+		dbDriver = drv;
+	}
+
+	public void addRow(Object[] rowData) {
+		DefaultTableModel model = (DefaultTableModel) table.getModel();
+		model.addRow(rowData);
+	}
+
 	public void searchExpression() {
 		
 	}
@@ -456,7 +516,7 @@ public class App extends JFrame {
 	public Number calculateExpression(String expression, boolean verbose) {
 		return calculateExpression(new InputReader(expression), verbose);
 	}
-	
+
 	public Number calculateExpression(InputReader expression, boolean verbose) {
 		RPNParser parser = new RPNParser(expression);
 		try {
