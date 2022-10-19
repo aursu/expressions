@@ -15,10 +15,10 @@ import java.util.Stack;
 
 public class RPNParser {
 	// token stream
-	protected TokenStream input; 
+	private TokenStream input;
 	
 	// output queue
-	protected Deque<Token<?>> outQueue = new LinkedList<>();
+	private Deque<Token<?>> outQueue = new LinkedList<>();
 
 	public RPNParser(String input) {
 		reset(input);
@@ -127,9 +127,14 @@ public class RPNParser {
 	}
 
 	public Number rpnEvaluate() throws ParseException {
-		if (outQueue.isEmpty()) parse();
-		if (outQueue.isEmpty()) return null;
-		
+		if (outQueue.isEmpty())
+			try {
+				parse();
+			} catch (ParseException e) {
+				e.printStackTrace();
+				return null;
+			}
+
 		// operands stack
 		Stack<NumberToken> opStack = new Stack<>();
 
@@ -182,5 +187,21 @@ public class RPNParser {
 		NumberToken result = opStack.pop();
 
 		return result.getValue();
+	}
+
+	public String rpnString() {
+		if (outQueue.isEmpty())
+			try {
+				parse();
+			} catch (ParseException e) {
+				e.printStackTrace();
+				return null;
+			}
+
+		return String.join(" ", outQueue.stream().map(token -> token.toString()).toList());
+	}
+
+	public String toString() {
+		return input.toString();
 	}
 }

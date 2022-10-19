@@ -51,5 +51,9 @@ public class InputReader {
     public boolean eof() {
         return peek() == 0;
     }
+    
+    public String toString() {
+    	return buf;
+    }
 }
 

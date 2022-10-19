@@ -27,6 +27,10 @@ public class SeparatorToken extends Token<TokenSeparator> {
 		return value == TokenSeparator.CLOSE_PARENTHESIS;
 	}
 
+	public String toString() {
+		return SeparatorToken.toString(value);
+	}
+
 	public static boolean isSeparator(char ch) {
 		return ch == '(' || ch == ')';
 	}

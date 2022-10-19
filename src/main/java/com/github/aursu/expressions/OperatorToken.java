@@ -112,6 +112,10 @@ public class OperatorToken extends Token<TokenOperator> {
 	public boolean rightAssociative() {
 		return assoc == OperationAssociativity.ASSOC_RIGHT;
 	}
+	
+	public String toString() {
+		return OperatorToken.toString(value);
+	}
 
 	public static int isOperator(char ch, char lookahead) {
 		switch(ch) {
@@ -181,7 +185,7 @@ public class OperatorToken extends Token<TokenOperator> {
 		}
 		return null;
 	}
-	
+
 	// >, <, >=, <=
 	public static String read(InputReader input) {
 		char peek      = input.peek(0),
