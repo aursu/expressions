@@ -89,24 +89,23 @@ public class ExpressionStorage extends DatabaseAccess {
 		}
 		return 0;
 	}
+	
+	public int store(String prn, String infix, Number evalValue) throws SQLException {		
+		return store(prn, infix, evalValue.doubleValue());
+	}
 
-	public int store(String prn, String infix, double evalValue) {
+	public int store(String prn, String infix, double evalValue) throws SQLException {
 		String sql = "INSERT INTO expressions VALUES (?, ?, ?)";
 
-		try {
-			PreparedStatement pstmt = prepare(sql);
-			pstmt.setString(1, prn);
-			pstmt.setString(2, infix);
-			pstmt.setDouble(3, evalValue);
-			
-			int rows = pstmt.executeUpdate();
-			pstmt.close();
-			
-			return rows;
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return 0;
+		PreparedStatement pstmt = prepare(sql);
+		pstmt.setString(1, prn);
+		pstmt.setString(2, infix);
+		pstmt.setDouble(3, evalValue);
+		
+		int rows = pstmt.executeUpdate();
+		pstmt.close();
+		
+		return rows;
 	}
 
 	private Vector<Vector<Object>> load(String sql) {
