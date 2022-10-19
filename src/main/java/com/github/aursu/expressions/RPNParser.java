@@ -15,6 +15,7 @@ import java.util.Stack;
 
 public class RPNParser {
 	// token stream
+	private String buffer = null;
 	private TokenStream input;
 	
 	// output queue
@@ -30,15 +31,25 @@ public class RPNParser {
 	
 	private void reset(InputReader input) {
 		this.input = new TokenStream(input);
+
+		buffer = input.toString();
 		outQueue.clear();
 	}
 	
 	private void reset(String input) {
 		reset(new InputReader(input));
 	}
+	
+	private void reset() {
+		if(buffer == null) return;
+		reset(new InputReader(buffer));
+	}
 
 	// Shunting yard algorithm
 	public void parse() throws ParseException {
+		// reset token stream and output queue before parsing
+		reset();
+
 		// operators stack
 		Stack<Token<?>> opStack = new Stack<>();
 		
@@ -177,7 +188,10 @@ public class RPNParser {
 				opStack.add(new NumberToken(res));
 			}
 		}
-		
+
+		if (opStack.empty())
+			throw new ParseException("RPN evaluation stack is empty. It must contain only one value which is a result", 0);
+
 		NumberToken result = opStack.pop();
 
 		return result.getValue();
