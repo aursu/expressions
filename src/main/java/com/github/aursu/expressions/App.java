@@ -20,6 +20,7 @@ import javax.swing.JButton;
 import java.awt.event.ActionListener;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.Collections;
 import java.util.Vector;
@@ -52,7 +53,7 @@ public class App extends JFrame {
 	private JTextArea textArea;
 	private RPNParser parser; // expression parser
 
-	// Database interface
+	// Database connection interface
 	private JButton btnStore;
 	private JButton btnLoad;
 	private JTextField txtDBHost;
@@ -60,10 +61,12 @@ public class App extends JFrame {
 	private JPasswordField passwordField;
 	private JTextField txtDBName;
 
-	private JTable table;
-
 	private String dbHost, dbUser, dbPassword, dbName;
-	private DBDriver dbDriver = DBDriver.MYSQL;
+
+	// Database storage interface
+	private JTable table;
+	private DBDriver dbDriver = DBDriver.MYSQL;	
+	private ExpressionStorage storage = null;
 
 	// search interface
 	private JButton btnSearch;
@@ -154,6 +157,12 @@ public class App extends JFrame {
 	}
 	
 	private void textGUI() {
+		ActionListener storeData = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				storeExpression();
+			}
+		};
+
 		JPanel textBox = new JPanel();
 		textBox.setLayout(new BoxLayout(textBox, BoxLayout.LINE_AXIS));
 		textBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
@@ -174,10 +183,7 @@ public class App extends JFrame {
 		btnStore.setAlignmentY(Component.TOP_ALIGNMENT);
 		btnStore.setMinimumSize(new Dimension(100, 29));
 		
-		btnStore.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-			}
-		});
+		btnStore.addActionListener(storeData);
 
 		textBox.add(btnStore);
 
@@ -434,10 +440,32 @@ public class App extends JFrame {
 		model.addRow(rowData);
 	}
 
-	public void searchExpression() {
+	// store expression into database
+	private void storeExpression() {
+		connectDatabase();
 		
+		boolean verbose = true;
+		
+		Number evalValue = calculateExpression(parser, verbose);
+		double value = evalValue.doubleValue();
+
+		String rpn = parser.rpnString(),
+			   infix = parser.toString();
+
+		if (storage.checkConnection())
+			try {
+				storage.store(rpn, infix, value);
+				printMessage(String.format("Stored: %s, %s, %f", rpn, infix, value));
+			} catch (SQLException e) {
+				printStackTrace(e);
+			}
 	}
-	
+
+	// search expression inside database
+	public void searchExpression() {
+
+	}
+
 	private boolean setupDBCredentials() {
 		dbHost = txtDBHost.getText();
 		dbUser = txtDBUser.getText();
@@ -448,7 +476,7 @@ public class App extends JFrame {
 
 		if (dbHost.isEmpty() || dbUser.isEmpty() || dbPassword.isEmpty() || dbName.isEmpty())
 			return false;
-		
+
 		// check port number
 		if (dbHost.indexOf(':') > 0) {
 			String hostAddr[] = dbHost.split(":");
@@ -462,10 +490,37 @@ public class App extends JFrame {
 			}
 		}
 
-	    if (InetAddressValidator.getInstance().isValid(hostName) || DomainValidator.getInstance(true).isValid(hostName))
+	    if (InetAddressValidator.getInstance().isValid(hostName) || DomainValidator.getInstance(true).isValid(hostName)) {
+	    	// setup credentials into storage object
+			if (storage == null) storage = new ExpressionStorage(dbName, dbHost, dbUser, dbPassword);
+			else storage.setup(dbName, dbHost, dbUser, dbPassword);
+
 			return true;
+	    }
 
 		return false;
+	}
+	
+	private void connectDatabase() {
+		if (setupDBCredentials()) {
+
+			// check if connection established already with proper credentials
+			if (storage.checkConnection()) return;
+
+			// close current connection (check above is failed) and setup  new credentials
+			if (storage.isConnected())
+				storage.close();
+
+			// connect to database
+			switch (dbDriver) {
+				case MYSQL:
+					storage.connectMySQL();
+				case POSTGRES:
+					// TODO: implement it
+				default:
+					break;	
+			}
+		}
 	}
 
 	public void checkExpression() {
