@@ -127,13 +127,7 @@ public class RPNParser {
 	}
 
 	public Number rpnEvaluate() throws ParseException {
-		if (outQueue.isEmpty())
-			try {
-				parse();
-			} catch (ParseException e) {
-				e.printStackTrace();
-				return null;
-			}
+		if (outQueue.isEmpty()) parse();
 
 		// operands stack
 		Stack<NumberToken> opStack = new Stack<>();
