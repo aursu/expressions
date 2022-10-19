@@ -43,10 +43,14 @@ public class App extends JFrame {
 	
 	// data table columns
 	public static final String[] columnNames = { "Polish", "Infix", "Value" };
+
 	// UI
 	private JPanel contentPane;
+
+	// expression parser interface
 	private JTextField txtExpression;
 	private JTextArea textArea;
+	private RPNParser parser; // expression parser
 
 	// Database interface
 	private JButton btnStore;
@@ -465,6 +469,7 @@ public class App extends JFrame {
 	}
 
 	public void checkExpression() {
+		// get expression from UI
 		String expression = txtExpression.getText();
 
 		if (expression.isEmpty()) {
@@ -472,12 +477,22 @@ public class App extends JFrame {
 			return;
 		}
 		
-		Number result = calculateExpression(expression);
+		// create new parser for expression evaluation
+		parser = new RPNParser(expression);
 
-		if (result == null) printMessage("Can not calculate expression", true);
+		// add parser errors (stack trace) into output
+		boolean verbose = true;
+	
+		// evaluate expression with parser
+		Number result = calculateExpression(parser, verbose);
+
+		if (result == null)
+			printMessage("Can not calculate expression", true);
 		else {
-			printMessage(result.toString());
-			btnStore.setEnabled(true);
+			printMessage(String.format("Expression evaluation: %s", result.toString()) , false);
+
+			if (setupDBCredentials()) btnStore.setEnabled(true);
+			else btnStore.setEnabled(false);
 		}
 	}
 	
@@ -517,8 +532,14 @@ public class App extends JFrame {
 		return calculateExpression(new InputReader(expression), verbose);
 	}
 
+	// parse and calculate expression from InputReader
 	public Number calculateExpression(InputReader expression, boolean verbose) {
 		RPNParser parser = new RPNParser(expression);
+		return calculateExpression(parser, verbose);
+	}
+
+	// parser evaluation
+	public Number calculateExpression(RPNParser parser, boolean verbose) {
 		try {
 			return parser.rpnEvaluate();
 		} catch (ParseException e) {
@@ -530,15 +551,17 @@ public class App extends JFrame {
 	}
 
 	public void printMessage(String msg) {
-		printMessage(msg, false);
+		boolean addText = false;
+		printMessage(msg, addText);
 	}
 
 	public void printMessage(String msg, boolean add) {
+		String msgnl = String.format("%s\n", msg);
 		if (add) {
-			textArea.append(msg);
+			textArea.append(msgnl);
 		}
 		else {
-			textArea.setText(msg);
+			textArea.setText(msgnl);
 		}
 	}
 
