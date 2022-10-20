@@ -14,42 +14,47 @@ import java.util.Stack;
  */
 
 public class RPNParser {
-	// token stream
-	private String buffer = null;
 	private TokenStream input;
-	
+	private String polish = null;
+
+	// input string
+	protected String buffer = null;
+	protected Number result = null;
+
 	// output queue
 	private Deque<Token<?>> outQueue = new LinkedList<>();
-
+	
 	public RPNParser(String input) {
-		reset(input);
+		setup(input);
 	}
 	
 	public RPNParser(InputReader input) {
-		reset(input);
+		setup(input);
 	}
 	
-	private void reset(InputReader input) {
+	// setup token stream and string buffer with new values
+	protected void setup(InputReader input) {
 		this.input = new TokenStream(input);
 
 		buffer = input.toString();
+		polish = null;
+		result = null;
+
 		outQueue.clear();
 	}
-	
-	private void reset(String input) {
-		reset(new InputReader(input));
+
+	protected void setup(String input) {
+		setup(new InputReader(input));
 	}
 	
-	private void reset() {
+	// reset input stream to initial state (stored in buffer)
+	public void reset() {
 		if(buffer == null) return;
-		reset(new InputReader(buffer));
+		setup(new InputReader(buffer));
 	}
 
 	// Shunting yard algorithm
-	public void parse() throws ParseException {
-		// reset token stream and output queue before parsing
-		reset();
-
+	public final void parse() throws ParseException {
 		// operators stack
 		Stack<Token<?>> opStack = new Stack<>();
 		
@@ -58,9 +63,12 @@ public class RPNParser {
 		
 		if (token == null)
 			throw new ParseException("Unable to get next token at position " + input.getStart(), input.getStart());
+		
+		if (token.equals(Token.EOFToken))
+			throw new ParseException("Expression is empty at position " + input.getStart(), input.getStart());
 
 		// while there are tokens to be read
-		while (!token.equals(Token.EOFToken)) {			
+		while (!token.equals(Token.EOFToken)) {	
 			// if the token is a number
 			if (token.isNumber()) {
 				// put it into the output queue
@@ -135,11 +143,14 @@ public class RPNParser {
 			// pop the operator from the operator stack onto the output queue
 			outQueue.add(opStack.pop());
 		}
+
+		if (!outQueue.isEmpty()) {
+			polish = String.join(" ", outQueue.stream().map(t -> t.toString()).toList());
+			result = evaluate();
+		}
 	}
 
-	public Number rpnEvaluate() throws ParseException {
-		if (outQueue.isEmpty()) parse();
-
+	private Number evaluate() throws ParseException {
 		// operands stack
 		Stack<NumberToken> opStack = new Stack<>();
 
@@ -197,19 +208,15 @@ public class RPNParser {
 		return result.getValue();
 	}
 
-	public String rpnString() {
-		if (outQueue.isEmpty())
-			try {
-				parse();
-			} catch (ParseException e) {
-				e.printStackTrace();
-				return null;
-			}
-
-		return String.join(" ", outQueue.stream().map(token -> token.toString()).toList());
+	public String rpn() {
+		return polish;
 	}
 
 	public String toString() {
 		return input.toString();
+	}
+	
+	public Number rpnEvaluate() {
+		return result;
 	}
 }
