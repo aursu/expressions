@@ -9,6 +9,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
 import javax.swing.text.Document;
 
 import org.apache.commons.validator.routines.DomainValidator;
@@ -18,10 +19,7 @@ import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JButton;
 import java.awt.event.ActionListener;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.sql.SQLException;
-import java.text.ParseException;
 import java.util.Collections;
 import java.util.Vector;
 import java.awt.event.ActionEvent;
@@ -43,7 +41,7 @@ import javax.swing.JRadioButton;
 public class App extends JFrame {
 	
 	// data table columns
-	public static final String[] columnNames = { "Polish", "Infix", "Value" };
+	public static final String[] columnIdentifiers = { "Polish", "Infix", "Value" };
 
 	// UI
 	private JPanel contentPane;
@@ -51,7 +49,7 @@ public class App extends JFrame {
 	// expression parser interface
 	private JTextField txtExpression;
 	private JTextArea textArea;
-	private RPNParser parser; // expression parser
+	private Expression expression; // expression parser
 
 	// Database connection interface
 	private JButton btnStore;
@@ -65,13 +63,19 @@ public class App extends JFrame {
 
 	// Database storage interface
 	private JTable table;
+	private Vector<String> columnNames = new Vector<>();
 	private DBDriver dbDriver = DBDriver.MYSQL;	
 	private ExpressionStorage storage = null;
 
 	// search interface
 	private JButton btnSearch;
 	private JTextField txtSearch;
+
+	OperatorToken srchToken = null;
+	double srchLookup;
 	
+	// print errors interface
+	private ErrorMessenger errors = new ErrorMessenger();
 
 	/**
 	 * Launch the application.
@@ -203,19 +207,19 @@ public class App extends JFrame {
 				else btnLoad.setEnabled(false);
 			}
 		};
-		
+
 		ActionListener driverSelect = new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				switch(e.getActionCommand()) {
 					case "PostgreSQL":
-						setDBBriver(DBDriver.POSTGRES);
+						setDBDriver(DBDriver.POSTGRES);
 						break;
 					default:
-						setDBBriver(DBDriver.MYSQL);
+						setDBDriver(DBDriver.MYSQL);
 				}
 			}
 		};
-		
+
 		JPanel databaseBox = new JPanel();
 		databaseBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
 		
@@ -348,7 +352,7 @@ public class App extends JFrame {
 	private void contentGUI() {
 		ActionListener loadData = new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-
+				loadContent();
 			}
 		};
 
@@ -360,15 +364,20 @@ public class App extends JFrame {
 		contentScrollPane.setAlignmentY(Component.TOP_ALIGNMENT);
 		contentScrollPane.setMinimumSize(new Dimension(0, 100));
 
-		Vector<String> columnNames = new Vector<>();
-		Collections.addAll(columnNames, App.columnNames);
+		Collections.addAll(columnNames, App.columnIdentifiers);
 
 		Vector<Vector<Object>> rowData = new Vector<>();
-
-		table = new JTable(rowData, columnNames);
+		TableModel model = new DefaultTableModel(rowData, columnNames) {
+			// cells in our table are not editable
+		    public boolean isCellEditable(int row, int column)
+		    {
+		    	return false;
+		    }
+		};
+		
+		table = new JTable(model);
+		
 		table.setFillsViewportHeight(true);
-		table.setColumnSelectionAllowed(true);
-		table.setCellSelectionEnabled(true);
 		contentScrollPane.setViewportView(table);
 
 		contentBox.add(contentScrollPane);
@@ -431,39 +440,61 @@ public class App extends JFrame {
 		contentPane.add(searchBox);
 	}
 
-	public void setDBBriver(DBDriver drv) {
+	protected void setDBDriver(DBDriver drv) {
 		dbDriver = drv;
 	}
 
-	public void addRow(Object[] rowData) {
-		DefaultTableModel model = (DefaultTableModel) table.getModel();
-		model.addRow(rowData);
-	}
-
 	// store expression into database
-	private void storeExpression() {
+	protected void storeExpression() {
 		connectDatabase();
-		
-		boolean verbose = true;
-		
-		Number evalValue = calculateExpression(parser, verbose);
-		double value = evalValue.doubleValue();
-
-		String rpn = parser.rpnString(),
-			   infix = parser.toString();
 
 		if (storage.checkConnection())
 			try {
-				storage.store(rpn, infix, value);
-				printMessage(String.format("Stored: %s, %s, %f", rpn, infix, value));
+				if (expression.isValid()) {
+					String rpn   = expression.rpn(),
+						   infix = expression.infix();
+					double value = expression.value();
+
+					storage.store(rpn, infix, value);
+
+					setMessage(String.format("Stored: %s, %s, %f", rpn, infix, value));
+				}
 			} catch (SQLException e) {
 				printStackTrace(e);
 			}
 	}
+	
+	protected void loadContent() {
+		connectDatabase();
+		
+		Vector<Vector<Object>> rowData = new Vector<>();
+
+		try {
+			rowData = storage.load();
+		} catch (SQLException e) {
+			printStackTrace(e);
+		}
+
+		if (rowData.isEmpty()) return;
+
+		DefaultTableModel model = (DefaultTableModel) table.getModel();
+		model.setDataVector(rowData, columnNames);
+	}
 
 	// search expression inside database
 	public void searchExpression() {
+		connectDatabase();
 
+		Vector<Vector<Object>> rowData = new Vector<>();
+
+		try {
+			rowData = storage.lookup(srchLookup, srchToken);
+		} catch (SQLException e) {
+			printStackTrace(e);
+		}
+
+		DefaultTableModel model = (DefaultTableModel) table.getModel();
+		model.setDataVector(rowData, columnNames);
 	}
 
 	private boolean setupDBCredentials() {
@@ -523,28 +554,28 @@ public class App extends JFrame {
 		}
 	}
 
-	public void checkExpression() {
+	protected void checkExpression() {
 		// get expression from UI
-		String expression = txtExpression.getText();
+		String exprtxt = txtExpression.getText();
 
-		if (expression.isEmpty()) {
-			printMessage("Expression is empty");
+		if (exprtxt.isEmpty()) {
+			setMessage("Expression is empty");
 			return;
 		}
-		
+
 		// create new parser for expression evaluation
-		parser = new RPNParser(expression);
+		expression = new Expression(exprtxt);
 
 		// add parser errors (stack trace) into output
 		boolean verbose = true;
 	
 		// evaluate expression with parser
-		Number result = calculateExpression(parser, verbose);
-
+		Number result = calculateExpression(expression, verbose);
+		
 		if (result == null)
-			printMessage("Can not calculate expression", true);
+			addMessage("Can not calculate expression");
 		else {
-			printMessage(String.format("Expression evaluation: %s", result.toString()) , false);
+			setMessage(String.format("Expression evaluation: %s", result.toString()));
 
 			if (setupDBCredentials()) btnStore.setEnabled(true);
 			else btnStore.setEnabled(false);
@@ -555,30 +586,33 @@ public class App extends JFrame {
 		String search = txtSearch.getText();
 
 		if (search.isEmpty()) {
-			printMessage("Search expression is empty");
+			setMessage("Search expression is empty");
 			btnSearch.setEnabled(false);
 			return;
 		}
 
 		InputReader input = new InputReader(search);
 		OperatorToken opToken = null;
-		
+
 		if (OperatorToken.isOperator(input)) {
 			opToken = OperatorToken.getToken(OperatorToken.read(input));
 		}
 
-		Number result = calculateExpression(input, false);
+		boolean verbose = false;
+		Number result = calculateExpression(input, verbose);
 
 		if (result == null) {
-			printMessage("Search expression is incorrect");
+			setMessage("Search expression is incorrect");
 			btnSearch.setEnabled(false);
 		}
 		else {
-			printMessage(result.toString());
+			setMessage();
+			srchToken = opToken;
+			srchLookup = result.doubleValue(); 
 			btnSearch.setEnabled(true);
 		}
 	}
-	
+
 	public Number calculateExpression(String expression) {
 		return calculateExpression(expression, true);
 	}
@@ -588,26 +622,19 @@ public class App extends JFrame {
 	}
 
 	// parse and calculate expression from InputReader
-	public Number calculateExpression(InputReader expression, boolean verbose) {
-		RPNParser parser = new RPNParser(expression);
-		return calculateExpression(parser, verbose);
+	public Number calculateExpression(InputReader input, boolean verbose) {
+		Expression expression = new Expression(input);
+		return calculateExpression(expression, verbose);
 	}
 
 	// parser evaluation
-	public Number calculateExpression(RPNParser parser, boolean verbose) {
-		try {
-			return parser.rpnEvaluate();
-		} catch (ParseException e) {
+	public Number calculateExpression(Expression expression, boolean verbose) {		
+		if (expression.isValid()) return expression.value();
+		else {
 			if (verbose)
-				printStackTrace(e);
+				setMessage(expression.stackTrace());
+			return null;
 		}
-
-		return null;
-	}
-
-	public void printMessage(String msg) {
-		boolean addText = false;
-		printMessage(msg, addText);
 	}
 
 	public void printMessage(String msg, boolean add) {
@@ -620,12 +647,20 @@ public class App extends JFrame {
 		}
 	}
 
+	private void setMessage() {
+		textArea.setText(null);
+	}
+
+	public void setMessage(String msg) {
+		printMessage(msg, false);
+	}
+	
+	public void addMessage(String msg) {
+		printMessage(msg, true);
+	}
+
 	private void printStackTrace(Throwable e) {
-		StringWriter sw = new StringWriter();
-		PrintWriter pw = new PrintWriter(sw);
-		
-		e.printStackTrace(pw);
-		
-		printMessage(sw.toString());
+		errors.process(e);
+		setMessage(errors.stack());
 	}
 }
