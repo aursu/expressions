@@ -1,6 +1,7 @@
 package com.github.aursu.expressions;
 
 import java.awt.EventQueue;
+import java.awt.FlowLayout;
 import java.awt.GridBagLayout;
 
 import javax.swing.JFrame;
@@ -19,6 +20,8 @@ import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JButton;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Vector;
@@ -66,6 +69,9 @@ public class App extends JFrame {
 	private Vector<String> columnNames = new Vector<>();
 	private DBDriver dbDriver = DBDriver.MYSQL;	
 	private ExpressionStorage storage = null;
+	
+	// correction will contain expression which we try to correct
+	private Expression correction = null;
 
 	// search interface
 	private JButton btnSearch;
@@ -112,6 +118,54 @@ public class App extends JFrame {
 		databaseGUI();
 		contentGUI();
 		searchGUI();
+		helpGUI();
+	}
+
+	private void helpGUI() {
+		ActionListener helpSetup = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				helpSetup();
+			}
+		};
+
+		JPanel helpBox = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+		helpBox.setAlignmentX(Component.RIGHT_ALIGNMENT);
+
+		JButton btnHelp = new JButton("Help");
+		btnHelp.setPreferredSize(new Dimension(100, 29));		
+		btnHelp.addActionListener(helpSetup);
+		
+		helpBox.add(btnHelp);
+
+		contentPane.add(helpBox);
+	}
+
+	protected void helpSetup() {
+		setMessage(String.format("HELP\n"
+				+ "\n"
+				+ "To load, store or search for data in database, you \n"
+				+ "have to setup correct database credentilas first.\n"
+				+ "\n"
+				+ "To load data from database - press button \"Load\"\n"
+				+ "\n"
+				+ "To store expression into database you have to type\n"
+				+ "it into text field \"Expression\" and press button \n"
+				+ "\"Check\". If expression is valid, then you can \n"
+				+ "store it into database using button \"Store\"\n"
+				+ "\n"
+				+ "To search for expression you have to type filter\n"
+				+ "rule into \"Search\" field. Filter rule should be\n"
+				+ "in form \"> 34\" or \">= 100\" or \"< 20\" or \"== 25\"\n"
+				+ "or \"<= (5 * 7)\"\n"
+				+ "\n"
+				+ "You can correct Infix form of any expression.\n"
+				+ "To do it you need to either \"Load\" expressions\n"
+				+ "from database or \"Search\" for them. Aftewards\n"
+				+ "double click on any of them inside table to load it\n"
+				+ "into \"Expression\" field and enable Correction mode.\n"
+				+ "You can edit it or set it to empty value (to delete it).\n"
+				+ "Then press \"Check\" to evaluate and \"Store\" to save\n"
+				+ "new value.\n"));
 	}
 
 	private void expressionGUI() {
@@ -203,8 +257,10 @@ public class App extends JFrame {
 				changedUpdate(e);
 			}
 			public void changedUpdate(DocumentEvent e) {				
-				if (setupDBCredentials()) btnLoad.setEnabled(true);
-				else btnLoad.setEnabled(false);
+				if (setupDBCredentials())
+					btnLoad.setEnabled(true);
+				else
+					btnLoad.setEnabled(false);
 			}
 		};
 
@@ -355,6 +411,19 @@ public class App extends JFrame {
 				loadContent();
 			}
 		};
+		
+		MouseAdapter editData = new MouseAdapter() {
+	         public void mouseClicked(MouseEvent e) {
+	        	// to detect double click events
+	            if (e.getClickCount() == 2) {
+	               // source of the event
+	               JTable target = (JTable) e.getSource();
+	               int row = target.getSelectedRow(); // select a row
+
+	               setCorrectionMode(row);
+	            }
+	         }
+	      };
 
 		JPanel contentBox = new JPanel();
 		contentBox.setLayout(new BoxLayout(contentBox, BoxLayout.LINE_AXIS));
@@ -376,6 +445,7 @@ public class App extends JFrame {
 		};
 		
 		table = new JTable(model);
+		table.addMouseListener(editData);
 		
 		table.setFillsViewportHeight(true);
 		contentScrollPane.setViewportView(table);
@@ -440,8 +510,47 @@ public class App extends JFrame {
 		contentPane.add(searchBox);
 	}
 
-	protected void setDBDriver(DBDriver drv) {
-		dbDriver = drv;
+
+	protected void checkExpression() {
+		// get expression from UI
+		String text = txtExpression.getText();
+
+		if (text.isEmpty()) {
+			if (isExpressionMode())
+				setMessage("Expression is empty");
+			else {
+				setMessage(String.format("Delete expression %s", correction.infix()));
+
+				// ability to delete expression in correction mode is here
+				expression = new Expression(text);
+
+				if (setupDBCredentials())
+					btnStore.setEnabled(true);
+				else
+					btnStore.setEnabled(false);
+			}
+			return;
+		}
+
+		// create new parser for expression evaluation
+		expression = new Expression(text);
+
+		// add parser errors (stack trace) into output
+		boolean verbose = true;
+
+		// evaluate expression with parser
+		Number result = calculateExpression(expression, verbose);
+
+		if (result == null)
+			addMessage("Can not calculate expression");
+		else {
+			setMessage(String.format("Expression evaluation: %s", result.toString()));
+
+			if (setupDBCredentials())
+				btnStore.setEnabled(true);
+			else
+				btnStore.setEnabled(false);
+		}
 	}
 
 	// store expression into database
@@ -450,11 +559,21 @@ public class App extends JFrame {
 
 		if (storage.checkConnection())
 			try {
+				if ((expression.isValid() || expression.isEmpty()) && isCorrectionMode()) {
+					String rpn = correction.rpn(),
+							infix = correction.infix();
+					
+					storage.delete(rpn);
+					addMessage(String.format("Deleted: %s",infix));
+
+					unsetCorrectionMode();
+				}
+
 				if (expression.isValid()) {
 					String rpn   = expression.rpn(),
-						   infix = expression.infix();
+							infix = expression.infix();
 					double value = expression.value();
-
+					
 					storage.store(rpn, infix, value);
 
 					setMessage(String.format("Stored: %s, %s, %f", rpn, infix, value));
@@ -463,7 +582,7 @@ public class App extends JFrame {
 				printStackTrace(e);
 			}
 	}
-	
+
 	protected void loadContent() {
 		connectDatabase();
 		
@@ -479,6 +598,8 @@ public class App extends JFrame {
 
 		DefaultTableModel model = (DefaultTableModel) table.getModel();
 		model.setDataVector(rowData, columnNames);
+
+		unsetCorrectionMode();
 	}
 
 	// search expression inside database
@@ -495,6 +616,27 @@ public class App extends JFrame {
 
 		DefaultTableModel model = (DefaultTableModel) table.getModel();
 		model.setDataVector(rowData, columnNames);
+
+		unsetCorrectionMode();
+	}
+
+	private boolean isExpressionMode() {
+		return correction == null;
+	}
+
+	private boolean isCorrectionMode() {
+		return !isExpressionMode();
+	}	
+
+	private void unsetCorrectionMode() {
+		// reset correction process
+		correction = null;
+
+		setMessage("Expression mode");
+	}
+
+	protected void setDBDriver(DBDriver drv) {
+		dbDriver = drv;
 	}
 
 	private boolean setupDBCredentials() {
@@ -523,8 +665,10 @@ public class App extends JFrame {
 
 	    if (InetAddressValidator.getInstance().isValid(hostName) || DomainValidator.getInstance(true).isValid(hostName)) {
 	    	// setup credentials into storage object
-			if (storage == null) storage = new ExpressionStorage(dbName, dbHost, dbUser, dbPassword);
-			else storage.setup(dbName, dbHost, dbUser, dbPassword);
+			if (storage == null)
+				storage = new ExpressionStorage(dbName, dbHost, dbUser, dbPassword);
+			else
+				storage.setup(dbName, dbHost, dbUser, dbPassword);
 
 			return true;
 	    }
@@ -554,34 +698,6 @@ public class App extends JFrame {
 		}
 	}
 
-	protected void checkExpression() {
-		// get expression from UI
-		String exprtxt = txtExpression.getText();
-
-		if (exprtxt.isEmpty()) {
-			setMessage("Expression is empty");
-			return;
-		}
-
-		// create new parser for expression evaluation
-		expression = new Expression(exprtxt);
-
-		// add parser errors (stack trace) into output
-		boolean verbose = true;
-	
-		// evaluate expression with parser
-		Number result = calculateExpression(expression, verbose);
-		
-		if (result == null)
-			addMessage("Can not calculate expression");
-		else {
-			setMessage(String.format("Expression evaluation: %s", result.toString()));
-
-			if (setupDBCredentials()) btnStore.setEnabled(true);
-			else btnStore.setEnabled(false);
-		}
-	}
-	
 	public void validateSearch() {
 		String search = txtSearch.getText();
 
@@ -594,9 +710,8 @@ public class App extends JFrame {
 		InputReader input = new InputReader(search);
 		OperatorToken opToken = null;
 
-		if (OperatorToken.isOperator(input)) {
+		if (OperatorToken.isOperator(input))
 			opToken = OperatorToken.getToken(OperatorToken.read(input));
-		}
 
 		boolean verbose = false;
 		Number result = calculateExpression(input, verbose);
@@ -611,6 +726,22 @@ public class App extends JFrame {
 			srchLookup = result.doubleValue(); 
 			btnSearch.setEnabled(true);
 		}
+	}
+
+	protected void setCorrectionMode(int row) {
+		int infixColumn = table.getColumn("Infix").getModelIndex();
+
+		// get expression from Table row
+		String expression = (String) table.getValueAt(row, infixColumn);
+
+		// with this set correction mode (save current expression)
+		correction = new Expression(expression);
+
+		// setup expression field for correction
+		txtExpression.setText(expression);
+
+		// Message
+		setMessage("Correction mode");
 	}
 
 	public Number calculateExpression(String expression) {
