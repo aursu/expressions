@@ -12,7 +12,7 @@ public class Expression extends RPNParser {
 	private double value;
 
 	// if expression is valid
-	private boolean valid = false;
+	private boolean valid = false, empty = false;
 
 	// to store stack trace rather than print it
 	private ErrorMessenger errors;
@@ -36,12 +36,18 @@ public class Expression extends RPNParser {
 			value = result.doubleValue();
 			infix = buffer;
 		} catch (ParseException e) {
+			if (buffer.isEmpty())
+				empty = true;
 			errors.process(e);
 		}
 	}
 
 	public boolean isValid() {
 		return valid;
+	}
+	
+	public boolean isEmpty() {
+		return empty;
 	}
 
 	public double value() {
